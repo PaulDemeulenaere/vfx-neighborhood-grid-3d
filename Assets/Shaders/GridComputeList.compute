@@ -1,0 +1,27 @@
+#include "GridCommon.hlsl"
+
+#pragma kernel ComputeList
+
+float4 CellSize;
+uint MaxCellCount;
+uint DispatchWidth;
+ByteAddressBuffer _DataBuffer;
+StructuredBuffer<uint> PreviousBoundsBuffer;
+StructuredBuffer<uint> BoundsBuffer;
+RWStructuredBuffer<uint2> CellInstanceBuffer;
+
+[numthreads(NB_THREADS_PER_GROUP, 1, 1)]
+void ComputeList(uint3 groupId : SV_GroupID, uint3 groupThreadId : SV_GroupThreadID)
+{
+    uint id = GetFlatThreadId(groupId, groupThreadId, DispatchWidth);
+    float3 readPosition;
+    if (GetPosition(PreviousBoundsBuffer, _DataBuffer, id, readPosition))
+    {
+        uint3 currentCell = GetCell(BoundsBuffer, CellSize.xyz, readPosition);
+        CellInstanceBuffer[id] = uint2(CalculateHash(BoundsBuffer, CellSize.xyz, MaxCellCount, currentCell), id);
+    }
+    else
+    {
+        CellInstanceBuffer[id] = INVALID_CELL_INDEX;
+    }
+}

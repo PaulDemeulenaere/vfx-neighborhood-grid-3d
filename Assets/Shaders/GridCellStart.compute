@@ -1,0 +1,43 @@
+#include "GridCommon.hlsl"
+
+#pragma kernel ClearCellStart
+#pragma kernel FindCellStart
+
+uint DispatchWidth;
+uint MaxCellCount;
+StructuredBuffer<uint2> CellInstanceBuffer;
+RWStructuredBuffer<uint> CellStartBuffer;
+
+[numthreads(NB_THREADS_PER_GROUP, 1, 1)]
+void ClearCellStart(uint3 groupId : SV_GroupID, uint3 groupThreadId : SV_GroupThreadID)
+{
+    CellStartBuffer[GetFlatThreadId(groupId, groupThreadId, DispatchWidth)] = INVALID_CELL_INDEX;
+}
+
+[numthreads(NB_THREADS_PER_GROUP, 1, 1)]
+void FindCellStart(uint3 groupId : SV_GroupID, uint3 groupThreadId : SV_GroupThreadID)
+{
+    uint id = GetFlatThreadId(groupId, groupThreadId, DispatchWidth);
+    if (id >= MaxCellCount)
+        return;
+
+    uint2 currentCell = CellInstanceBuffer[id];
+
+    [branch]
+    if (currentCell.x == INVALID_CELL_INDEX)
+        return;
+
+    [branch]
+    if (id == 0)
+    {
+        CellStartBuffer[currentCell.x] = id;
+    }
+    else
+    {
+        uint2 previousCell = CellInstanceBuffer[id - 1];
+        if (previousCell.x != currentCell.x)
+        {
+            CellStartBuffer[currentCell.x] = id;
+        }
+    }
+}

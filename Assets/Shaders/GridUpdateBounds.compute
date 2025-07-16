@@ -1,0 +1,65 @@
+#include "GridCommon.hlsl"
+
+#pragma kernel ComputeBounds
+
+StructuredBuffer<uint> PreviousBoundsBuffer;
+float4 CellSize;
+uint MaxParticleCount;
+ByteAddressBuffer _DataBuffer;
+RWStructuredBuffer<uint> BoundsBuffer;
+
+groupshared uint sMinPositionsX[NB_THREADS_PER_GROUP];
+groupshared uint sMinPositionsY[NB_THREADS_PER_GROUP];
+groupshared uint sMinPositionsZ[NB_THREADS_PER_GROUP];
+groupshared uint sMaxPositionsX[NB_THREADS_PER_GROUP];
+groupshared uint sMaxPositionsY[NB_THREADS_PER_GROUP];
+groupshared uint sMaxPositionsZ[NB_THREADS_PER_GROUP];
+
+[numthreads(NB_THREADS_PER_GROUP, 1, 1)]
+void ComputeBounds(uint3 groupId : SV_GroupID, uint3 groupThreadId : SV_GroupThreadID)
+{
+    float3 readPosition;
+    bool alive = GetPosition(PreviousBoundsBuffer, _DataBuffer, GetFlatThreadId(groupId, groupThreadId, 1), readPosition);
+
+    uint tid = groupThreadId.x;
+    if (alive)
+    {
+        sMinPositionsX[tid] = FloatFlip(asuint(readPosition.x - CellSize.x));
+        sMinPositionsY[tid] = FloatFlip(asuint(readPosition.y - CellSize.y));
+        sMinPositionsZ[tid] = FloatFlip(asuint(readPosition.z - CellSize.z));
+        sMaxPositionsX[tid] = FloatFlip(asuint(readPosition.x + CellSize.x));
+        sMaxPositionsY[tid] = FloatFlip(asuint(readPosition.y + CellSize.y));
+        sMaxPositionsZ[tid] = FloatFlip(asuint(readPosition.z + CellSize.z));
+    }
+    else
+    {
+        sMinPositionsX[tid] = sMinPositionsY[tid] = sMinPositionsZ[tid] = MIN_FLOAT_FLIP;
+        sMaxPositionsX[tid] = sMaxPositionsY[tid] = sMaxPositionsZ[tid] = MAX_FLOAT_FLIP;
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+    for (uint s = NB_THREADS_PER_GROUP / 2; s > 0; s >>= 1)
+    {
+        if (tid < s)
+        {
+            sMinPositionsX[tid] = min(sMinPositionsX[tid], sMinPositionsX[tid + s]);
+            sMinPositionsY[tid] = min(sMinPositionsY[tid], sMinPositionsY[tid + s]);
+            sMinPositionsZ[tid] = min(sMinPositionsZ[tid], sMinPositionsZ[tid + s]);
+            sMaxPositionsX[tid] = max(sMaxPositionsX[tid], sMaxPositionsX[tid + s]);
+            sMaxPositionsY[tid] = max(sMaxPositionsY[tid], sMaxPositionsY[tid + s]);
+            sMaxPositionsZ[tid] = max(sMaxPositionsZ[tid], sMaxPositionsZ[tid + s]);
+        }
+
+        GroupMemoryBarrierWithGroupSync();
+    }
+
+    if (tid == 0)
+    {
+        InterlockedMin(BoundsBuffer[0], sMinPositionsX[tid]);
+        InterlockedMin(BoundsBuffer[1], sMinPositionsY[tid]);
+        InterlockedMin(BoundsBuffer[2], sMinPositionsZ[tid]);
+        InterlockedMax(BoundsBuffer[3], sMaxPositionsX[tid]);
+        InterlockedMax(BoundsBuffer[4], sMaxPositionsY[tid]);
+        InterlockedMax(BoundsBuffer[5], sMaxPositionsZ[tid]);
+    }
+}
