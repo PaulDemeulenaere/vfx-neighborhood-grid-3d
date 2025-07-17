@@ -129,7 +129,7 @@ For larger instance counts beyond what VFX Graph supports natively, alternative 
 - [Coding Adventure: Simulating Fluids](https://www.youtube.com/watch?v=rSKMYc1CQHE) by @SebLague (based on Simon Green's reference)
 - [A GPU Boids Simulator](https://axoloto.github.io/rtp/2021-07-11-boids/) by @axoloto (based on Simon Green's reference)
 - [Former Simple 2D Grid approach](https://github.com/PaulDemeulenaere/vfx-neighborhood-grid)
-- See forum post (soon)
+- [See Forum Post](https://discussions.unity.com/t/3d-flocking-simulation-with-vfx-graph/1668041)
 
 Special thanks to @alelievr for profiling assistance, and to @julienf-unity and @OrsonFavrel for proofreading support.
 
